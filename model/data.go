@@ -26,11 +26,6 @@ type Picture struct {
 	Large struct {
 		Size string `json:"size"`
 		URL  string `json:"url"`
-		Geo  struct {
-			Width  string `json:"width"`
-			Height string `json:"height"`
-			Croped bool   `json:"croped"`
-		}
 	} `json:"large"`
 }
 type RenderData struct {
