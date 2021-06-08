@@ -60,9 +60,11 @@ func (w *ExtractWeibo) process(html string) (err error) {
 	if len(title) > 30 {
 		title = append(title[:30], '.', '.', '.')
 	}
+
 	out := fmt.Sprintf("[%s][%s][%s].wb.html", author, rdata.CreateTimeString(), string(title))
 	out = strings.ReplaceAll(out, "/", ".")
 	out = strings.ReplaceAll(out, ":", ".")
+
 	return ioutil.WriteFile(out, []byte(htm), 0666)
 }
 func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error) {
@@ -88,6 +90,7 @@ func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error
 		renderData = sc.Text()
 	}
 	err = cmd.Wait()
+
 	return
 }
 func (w *ExtractWeibo) decodeData(j string) (rd *model.RenderData, err error) {
