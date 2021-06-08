@@ -2,21 +2,16 @@ package cmd
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/chromedp/chromedp"
 
 	"github.com/gonejack/extract-weibo/model"
 )
@@ -64,44 +59,6 @@ func (w *ExtractWeibo) process(html string) (err error) {
 	out = strings.ReplaceAll(out, "/", "_")
 	return ioutil.WriteFile(out, []byte(htm), 0766)
 }
-func (w *ExtractWeibo) getData(url string) (renderData string, err error) {
-	timeout, cancel := context.WithTimeout(context.TODO(), 15*time.Second)
-	defer cancel()
-
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("blink-settings", "imagesEnabled=false"),
-	)
-	ctx, cancel := chromedp.NewExecAllocator(timeout, opts...)
-	defer cancel()
-
-	ctx, cancel = chromedp.NewContext(
-		ctx,
-		chromedp.WithLogf(log.Printf),
-		chromedp.WithDebugf(log.Printf),
-	)
-	defer cancel()
-
-	err = chromedp.Run(ctx,
-		chromedp.Navigate(url),
-		chromedp.Sleep(time.Second/5),
-		chromedp.EvaluateAsDevTools("JSON.stringify($render_data)", &renderData),
-	)
-
-	return
-}
-func (w *ExtractWeibo) getData2(url string) (renderData string, err error) {
-	timeout, cancel := context.WithTimeout(context.TODO(), 15*time.Second)
-	defer cancel()
-
-	req, _ := http.NewRequestWithContext(timeout, http.MethodGet, url, nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	return w.parseJSON(resp.Body)
-}
 func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error) {
 	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
@@ -130,31 +87,6 @@ func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error
 func (w *ExtractWeibo) decodeData(j string) (rd *model.RenderData, err error) {
 	rd = new(model.RenderData)
 	return rd, rd.From([]byte(j))
-}
-func (w *ExtractWeibo) openLocalFile(htmlFile string, ref string) (fd *os.File, err error) {
-	fd, err = os.Open(ref)
-	if err == nil {
-		return
-	}
-
-	// compatible with evernote's exported htmls
-	{
-		basename := strings.TrimSuffix(htmlFile, filepath.Ext(htmlFile))
-		filename := filepath.Base(ref)
-		fd, err = os.Open(filepath.Join(basename+"_files", filename))
-		if err == nil {
-			return
-		}
-		fd, err = os.Open(filepath.Join(basename+".resources", filename))
-		if err == nil {
-			return
-		}
-		if strings.HasSuffix(ref, ".") {
-			return w.openLocalFile(htmlFile, strings.TrimSuffix(ref, "."))
-		}
-	}
-
-	return
 }
 func (w *ExtractWeibo) operateDoc(doc *goquery.Document, data *model.RenderData) *goquery.Document {
 	doc.Find("div.wrap").Remove()
