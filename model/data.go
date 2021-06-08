@@ -19,11 +19,9 @@ type Status struct {
 	Bid         string    `json:"bid"`
 	Pics        []Picture `json:"pics"`
 }
-
 type User struct {
 	ScreenName string `json:"screen_name"`
 }
-
 type Picture struct {
 	Large struct {
 		Size string `json:"size"`
@@ -35,7 +33,6 @@ type Picture struct {
 		}
 	} `json:"large"`
 }
-
 type RenderData struct {
 	Status Status `json:"status"`
 }
@@ -53,6 +50,7 @@ func (r *RenderData) HTML() (s string) {
 	{
 		body.AppendHtml(r.info())
 		body.AppendHtml(r.Status.Text)
+		body.AppendHtml("<br />")
 		body.Find("a").Each(func(i int, a *goquery.Selection) {
 			ref, _ := a.Attr("href")
 			if ref != "" {
@@ -60,7 +58,7 @@ func (r *RenderData) HTML() (s string) {
 			}
 		})
 		for _, p := range r.Status.Pics {
-			body.AppendHtml(fmt.Sprintf(`<a href="%s"><img src="%s" alt="%s"></a>`, p.Large.URL, p.Large.URL, p.Large.URL))
+			body.AppendHtml(fmt.Sprintf(`<a href="%s"><img src="%s" alt="%s"></a><br />`, p.Large.URL, p.Large.URL, p.Large.URL))
 		}
 		body.AppendHtml(r.foot())
 	}

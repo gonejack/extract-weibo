@@ -14,8 +14,8 @@ var (
 	verbose bool
 
 	prog = &cobra.Command{
-		Use:   "extract-weibo urls",
-		Short: "Command line tool for extracting weibo content.",
+		Use:   "extract-weibo *.html",
+		Short: "Command line tool for extracting weibo content from m.weibo.cn html files",
 		Run: func(c *cobra.Command, args []string) {
 			err := run(c, args)
 			if err != nil {

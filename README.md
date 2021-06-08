@@ -12,11 +12,11 @@ Convert HTML to email
 
 ### Usage
 ```shell
-> extract-weibo urls
+> extract-weibo *.html
 ```
 ```
 Usage:
-  extract-weibo urls [flags]
+  extract-weibo *.html [flags]
 
 Flags:
   -v, --verbose   verbose
