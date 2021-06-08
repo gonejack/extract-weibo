@@ -20,12 +20,12 @@ type ExtractWeibo struct {
 	Verbose bool
 }
 
-func (w *ExtractWeibo) Run(htmlList []string) (err error) {
-	if len(htmlList) == 0 {
+func (w *ExtractWeibo) Run(htmls []string) (err error) {
+	if len(htmls) == 0 {
 		return errors.New("no HTML files given")
 	}
 
-	for _, html := range htmlList {
+	for _, html := range htmls {
 		err = w.process(html)
 		if err != nil {
 			return fmt.Errorf("parse %s failed: %s", html, err)
@@ -55,9 +55,9 @@ func (w *ExtractWeibo) process(html string) (err error) {
 	}
 	htm := rdata.HTML()
 
-	out := fmt.Sprintf("[%s][%s][%s].html", strings.TrimSpace(rdata.Status.User.ScreenName), strings.TrimSpace(rdata.Status.StatusTitle), rdata.CreateTime())
+	out := fmt.Sprintf("[%s][%s][%s].wb.html", strings.TrimSpace(rdata.Status.User.ScreenName), strings.TrimSpace(rdata.Status.StatusTitle), rdata.CreateTimeString())
 	out = strings.ReplaceAll(out, "/", "_")
-	return ioutil.WriteFile(out, []byte(htm), 0766)
+	return ioutil.WriteFile(out, []byte(htm), 0666)
 }
 func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error) {
 	doc, err := goquery.NewDocumentFromReader(reader)

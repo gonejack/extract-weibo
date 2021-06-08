@@ -42,6 +42,7 @@ func (r *RenderData) HTML() (s string) {
 	head := doc.Find("head")
 	{
 		head.AppendHtml(`<meta charset="UTF-8">`)
+		head.AppendHtml(fmt.Sprintf(`<meta name="inostar:publish" content="%s">`, r.CreateTime().Format(time.RFC1123Z)))
 		title := fmt.Sprintf(`<title>%s</title>`, html.EscapeString(r.Status.StatusTitle))
 		doc.Find("head").AppendHtml(title)
 	}
@@ -67,12 +68,15 @@ func (r *RenderData) HTML() (s string) {
 
 	return
 }
-func (r *RenderData) CreateTime() string {
+func (r *RenderData) CreateTime() time.Time {
 	t, err := time.Parse(time.RubyDate, r.Status.CreatedAt)
 	if err != nil {
 		t = time.Now()
 	}
-	return t.Format("2006-01-02 15:04:05")
+	return t
+}
+func (r *RenderData) CreateTimeString() string {
+	return r.CreateTime().Format("2006-01-02 15:04:05")
 }
 func (r *RenderData) Link() string {
 	return fmt.Sprintf("https://m.weibo.cn/status/%s", r.Status.Bid)
@@ -110,7 +114,7 @@ func (r *RenderData) info() string {
 </p>
 `
 	return strings.NewReplacer(
-		"{time}", r.CreateTime(),
+		"{time}", r.CreateTimeString(),
 		"{link}", r.Link(),
 		"{source}", html.EscapeString(r.Status.User.ScreenName),
 		"{title}", html.EscapeString(r.Status.StatusTitle),
@@ -122,7 +126,7 @@ func (r *RenderData) foot() string {
 <a style="display: inline-block; border-top: 1px solid #ccc; padding-top: 5px; color: #666; text-decoration: none;"
    href="{link}">{link}</a>
 <p style="color:#999;">Save with <a style="color:#666; text-decoration:none; font-weight: bold;"
-                                    href="https://github.com/gonejack/inostar">inostar</a>
+                                    href="https://github.com/gonejack/extract-weibo">extract-weibo</a>
 </p>`
 
 	return strings.NewReplacer(

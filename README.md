@@ -1,5 +1,5 @@
 # extract-weibo
-Convert HTML to email
+Parse the html files save by [saveurls](https://github.com/gonejack/saveurls) from `m.weibo.cn`.
 
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/gonejack/extract-weibo)
 ![Build](https://github.com/gonejack/extract-weibo/actions/workflows/go.yml/badge.svg)
