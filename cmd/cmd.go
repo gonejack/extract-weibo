@@ -55,8 +55,14 @@ func (w *ExtractWeibo) process(html string) (err error) {
 	}
 	htm := rdata.HTML()
 
-	out := fmt.Sprintf("[%s][%s][%s].wb.html", strings.TrimSpace(rdata.Status.User.ScreenName), strings.TrimSpace(rdata.Status.StatusTitle), rdata.CreateTimeString())
-	out = strings.ReplaceAll(out, "/", "_")
+	author := strings.TrimSpace(rdata.Status.User.ScreenName)
+	title := []rune(strings.TrimSpace(rdata.Status.StatusTitle))
+	if len(title) > 30 {
+		title = append(title[:30], '.', '.', '.')
+	}
+	out := fmt.Sprintf("[%s][%s][%s].wb.html", author, rdata.CreateTimeString(), string(title))
+	out = strings.ReplaceAll(out, "/", ".")
+	out = strings.ReplaceAll(out, ":", ".")
 	return ioutil.WriteFile(out, []byte(htm), 0666)
 }
 func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error) {
