@@ -99,8 +99,7 @@ func (w *ExtractWeibo) operateDoc(doc *goquery.Document, data *model.RenderData)
 	doc.Find("div.weibo-media-wraps").Parent().Remove()
 
 	for _, pic := range data.Status.Pics {
-		img := fmt.Sprintf(`<img src="%s">`, pic.Large.URL)
-		doc.Find("div.weibo-og").AppendHtml(img)
+		doc.Find("div.weibo-og").AppendHtml(fmt.Sprintf(`<img src="%s">`, pic.Large.URL))
 	}
 
 	return doc

@@ -43,8 +43,7 @@ func (r *RenderData) HTML() (s string) {
 	{
 		head.AppendHtml(`<meta charset="UTF-8">`)
 		head.AppendHtml(fmt.Sprintf(`<meta name="inostar:publish" content="%s">`, r.CreateTime().Format(time.RFC1123Z)))
-		title := fmt.Sprintf(`<title>%s</title>`, html.EscapeString(r.Status.StatusTitle))
-		doc.Find("head").AppendHtml(title)
+		head.AppendHtml(fmt.Sprintf(`<title>%s</title>`, html.EscapeString(r.Status.StatusTitle)))
 	}
 
 	body := doc.Find("body")
