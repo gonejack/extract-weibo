@@ -3,9 +3,9 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -39,23 +39,29 @@ func (w *ExtractWeibo) Run(htmlList []string) (err error) {
 
 	return
 }
-func (w *ExtractWeibo) process(url string) (err error) {
+func (w *ExtractWeibo) process(html string) (err error) {
 	if w.Verbose {
-		log.Printf("processing %s", url)
+		log.Printf("processing %s", html)
 	}
 
-	rdata, err := w.getData2(url)
-	if err != nil {
-		return err
-	}
-	data, err := w.decodeData(rdata)
+	fd, err := os.Open(html)
 	if err != nil {
 		return
 	}
+	defer fd.Close()
 
-	htm := data.HTML()
+	jsons, err := w.parseJSON(fd)
+	if err != nil {
+		return err
+	}
+	rdata, err := w.decodeData(jsons)
+	if err != nil {
+		return
+	}
+	htm := rdata.HTML()
 
-	out := fmt.Sprintf("%s.html", strings.ReplaceAll(data.Status.StatusTitle, "/", "_"))
+	out := fmt.Sprintf("[%s][%s][%s].html", strings.TrimSpace(rdata.Status.User.ScreenName), strings.TrimSpace(rdata.Status.StatusTitle), rdata.CreateTime())
+	out = strings.ReplaceAll(out, "/", "_")
 	return ioutil.WriteFile(out, []byte(htm), 0766)
 }
 func (w *ExtractWeibo) getData(url string) (renderData string, err error) {
@@ -92,8 +98,12 @@ func (w *ExtractWeibo) getData2(url string) (renderData string, err error) {
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	return w.parseJSON(resp.Body)
+}
+func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error) {
+	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
 		return
 	}
@@ -115,12 +125,11 @@ func (w *ExtractWeibo) getData2(url string) (renderData string, err error) {
 		renderData = sc.Text()
 	}
 	err = cmd.Wait()
-
 	return
 }
-func (w *ExtractWeibo) decodeData(j string) (data *model.RenderData, err error) {
-	data = new(model.RenderData)
-	return data, json.Unmarshal([]byte(j), data)
+func (w *ExtractWeibo) decodeData(j string) (rd *model.RenderData, err error) {
+	rd = new(model.RenderData)
+	return rd, rd.From([]byte(j))
 }
 func (w *ExtractWeibo) openLocalFile(htmlFile string, ref string) (fd *os.File, err error) {
 	fd, err = os.Open(ref)

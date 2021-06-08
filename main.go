@@ -27,7 +27,6 @@ var (
 
 func init() {
 	log.SetOutput(os.Stdout)
-
 	prog.Flags().SortFlags = false
 
 	flags := prog.PersistentFlags()
