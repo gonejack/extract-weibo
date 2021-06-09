@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -66,7 +67,7 @@ func convertLink(args []string) {
 	}
 	for _, ref := range args {
 		u, err := url.Parse(ref)
-		if err == nil {
+		if err == nil && strings.Contains(u.Host, "weibo") {
 			u.Host = "m.weibo.cn"
 			ref = u.String()
 		}
