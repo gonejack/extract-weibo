@@ -15,10 +15,8 @@ Parse the html files save by [saveurls](https://github.com/gonejack/saveurls) fr
 > extract-weibo *.html
 ```
 ```
-Usage:
-  extract-weibo *.html [flags]
-
 Flags:
-  -v, --verbose   verbose
-  -h, --help      help for extract-weibo
+  -h, --help       Show context-sensitive help.
+  -c, --convert    Convert weibo.com links to m.weibo.cn.
+  -v, --verbose    Verbose printing.
 ```
