@@ -2,72 +2,86 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/alecthomas/kong"
 
 	"github.com/gonejack/extract-weibo/model"
 )
 
-type ExtractWeibo struct {
-	Verbose bool
+type options struct {
+	Convert bool `short:"c" help:"Convert weibo.com links to m.weibo.cn."`
+	Verbose bool `short:"v" help:"Verbose printing."`
+
+	Args []string `arg:"" optional:""`
 }
 
-func (w *ExtractWeibo) Run(htmls []string) (err error) {
-	if len(htmls) == 0 {
-		return errors.New("no HTML files given")
-	}
+type ExtractWeibo struct {
+	options
+}
 
-	for _, html := range htmls {
-		err = w.process(html)
+func (c *ExtractWeibo) Run() error {
+	kong.Parse(&c.options,
+		kong.Name("extract-weibo"),
+		kong.Description("Command line tool for extracting weibo content from m.weibo.cn html files"),
+		kong.UsageOnError(),
+	)
+
+	if c.Convert {
+		return c.convertLink()
+	} else {
+		if len(c.Args) == 0 {
+			return errors.New("no HTML files given")
+		}
+		return c.run()
+	}
+}
+func (c *ExtractWeibo) run() error {
+	for _, html := range c.Args {
+		if c.Verbose {
+			log.Printf("processing %s", html)
+		}
+		data, err := os.ReadFile(html)
 		if err != nil {
-			return fmt.Errorf("parse %s failed: %s", html, err)
+			return err
+		}
+		jsons, err := c.parseJSON(bytes.NewReader(data))
+		if err != nil {
+			return err
+		}
+		rdata, err := c.decodeData(jsons)
+		if err != nil {
+			return err
+		}
+
+		author := strings.TrimSpace(rdata.Status.User.ScreenName)
+		title := []rune(strings.TrimSpace(rdata.Status.StatusTitle))
+		if len(title) > 30 {
+			title = append(title[:30], '.', '.', '.')
+		}
+		output := fmt.Sprintf("[%s][%s][%s].wb.html", author, rdata.CreateTimeString(), string(title))
+		output = strings.ReplaceAll(output, "/", ".")
+		output = strings.ReplaceAll(output, ":", ".")
+
+		err = ioutil.WriteFile(output, []byte(rdata.HTML()), 0666)
+		if err != nil {
+			return err
 		}
 	}
 
-	return
+	return nil
 }
-func (w *ExtractWeibo) process(html string) (err error) {
-	if w.Verbose {
-		log.Printf("processing %s", html)
-	}
-
-	fd, err := os.Open(html)
-	if err != nil {
-		return
-	}
-	defer fd.Close()
-
-	jsons, err := w.parseJSON(fd)
-	if err != nil {
-		return err
-	}
-	rdata, err := w.decodeData(jsons)
-	if err != nil {
-		return
-	}
-	htm := rdata.HTML()
-
-	author := strings.TrimSpace(rdata.Status.User.ScreenName)
-	title := []rune(strings.TrimSpace(rdata.Status.StatusTitle))
-	if len(title) > 30 {
-		title = append(title[:30], '.', '.', '.')
-	}
-
-	out := fmt.Sprintf("[%s][%s][%s].wb.html", author, rdata.CreateTimeString(), string(title))
-	out = strings.ReplaceAll(out, "/", ".")
-	out = strings.ReplaceAll(out, ":", ".")
-
-	return ioutil.WriteFile(out, []byte(htm), 0666)
-}
-func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error) {
+func (c *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error) {
 	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
 		return
@@ -93,17 +107,40 @@ func (w *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error
 
 	return
 }
-func (w *ExtractWeibo) decodeData(j string) (rd *model.RenderData, err error) {
+func (c *ExtractWeibo) decodeData(j string) (rd *model.RenderData, err error) {
 	rd = new(model.RenderData)
 	return rd, rd.From([]byte(j))
 }
-func (w *ExtractWeibo) operateDoc(doc *goquery.Document, data *model.RenderData) *goquery.Document {
+func (c *ExtractWeibo) operateDoc(doc *goquery.Document, data *model.RenderData) *goquery.Document {
 	doc.Find("div.wrap").Remove()
 	doc.Find("div.weibo-media-wraps").Parent().Remove()
-
 	for _, pic := range data.Status.Pics {
 		doc.Find("div.weibo-og").AppendHtml(fmt.Sprintf(`<img src="%s">`, pic.Large.URL))
 	}
-
 	return doc
+}
+func (c *ExtractWeibo) convertLink() (err error) {
+	var urls []string
+
+	// scan urls from stdin
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		scan := bufio.NewScanner(os.Stdin)
+		for scan.Scan() {
+			urls = append(urls, scan.Text())
+		}
+	}
+
+	urls = append(urls, c.Args...)
+
+	for _, u := range urls {
+		p, err := url.Parse(u)
+		if err == nil && strings.Contains(p.Host, "weibo") {
+			p.Host = "m.weibo.cn"
+			u = p.String()
+		}
+		_, _ = fmt.Fprintln(os.Stdout, u)
+	}
+
+	return
 }
