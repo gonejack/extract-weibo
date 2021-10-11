@@ -2,15 +2,16 @@ package cmd
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -41,6 +42,9 @@ func (c *ExtractWeibo) Run() error {
 		return c.convertLink()
 	} else {
 		if len(c.Args) == 0 {
+			c.Args, _ = filepath.Glob("*.html")
+		}
+		if len(c.Args) == 0 {
 			return errors.New("no HTML files given")
 		}
 		return c.run()
@@ -51,29 +55,25 @@ func (c *ExtractWeibo) run() error {
 		if c.Verbose {
 			log.Printf("processing %s", html)
 		}
-		data, err := os.ReadFile(html)
+		json, err := c.parseHTML(html)
 		if err != nil {
 			return err
 		}
-		jsons, err := c.parseJSON(bytes.NewReader(data))
-		if err != nil {
-			return err
-		}
-		rdata, err := c.decodeData(jsons)
+		weibo, err := c.decodeWeibo(json)
 		if err != nil {
 			return err
 		}
 
-		author := strings.TrimSpace(rdata.Status.User.ScreenName)
-		title := []rune(strings.TrimSpace(rdata.Status.StatusTitle))
+		author := strings.TrimSpace(weibo.Status.User.ScreenName)
+		title := []rune(strings.TrimSpace(weibo.Status.StatusTitle))
 		if len(title) > 30 {
 			title = append(title[:30], '.', '.', '.')
 		}
-		output := fmt.Sprintf("[%s][%s][%s].wb.html", author, rdata.CreateTimeString(), string(title))
+		output := fmt.Sprintf("[%s][%s][%s].wb.html", author, weibo.CreateTimeString(), string(title))
 		output = strings.ReplaceAll(output, "/", ".")
 		output = strings.ReplaceAll(output, ":", ".")
 
-		err = ioutil.WriteFile(output, []byte(rdata.HTML()), 0666)
+		err = ioutil.WriteFile(output, []byte(weibo.HTML()), 0666)
 		if err != nil {
 			return err
 		}
@@ -81,8 +81,19 @@ func (c *ExtractWeibo) run() error {
 
 	return nil
 }
-func (c *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error) {
-	doc, err := goquery.NewDocumentFromReader(reader)
+func (c *ExtractWeibo) parseHTML(html string) (json string, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("parse %s error: %w", html, err)
+		}
+	}()
+
+	fd, err := os.Open(html)
+	if err != nil {
+		return
+	}
+
+	doc, err := goquery.NewDocumentFromReader(fd)
 	if err != nil {
 		return
 	}
@@ -101,17 +112,17 @@ func (c *ExtractWeibo) parseJSON(reader io.Reader) (renderData string, err error
 	}
 	sc := bufio.NewScanner(out)
 	for sc.Scan() {
-		renderData = sc.Text()
+		json = sc.Text()
 	}
 	err = cmd.Wait()
 
 	return
 }
-func (c *ExtractWeibo) decodeData(j string) (rd *model.RenderData, err error) {
-	rd = new(model.RenderData)
-	return rd, rd.From([]byte(j))
+func (c *ExtractWeibo) decodeWeibo(j string) (data *model.Weibo, err error) {
+	data = new(model.Weibo)
+	return data, data.From([]byte(j))
 }
-func (c *ExtractWeibo) operateDoc(doc *goquery.Document, data *model.RenderData) *goquery.Document {
+func (c *ExtractWeibo) operateDoc(doc *goquery.Document, data *model.Weibo) *goquery.Document {
 	doc.Find("div.wrap").Remove()
 	doc.Find("div.weibo-media-wraps").Parent().Remove()
 	for _, pic := range data.Status.Pics {
@@ -135,11 +146,25 @@ func (c *ExtractWeibo) convertLink() (err error) {
 
 	for _, u := range urls {
 		p, err := url.Parse(u)
-		if err == nil && strings.Contains(p.Host, "weibo") {
-			p.Host = "m.weibo.cn"
-			u = p.String()
+		if err != nil {
+			continue
 		}
-		_, _ = fmt.Fprintln(os.Stdout, u)
+		if !strings.Contains(p.Host, "weibo") {
+			continue
+		}
+
+		switch {
+		case p.Host == "share.api.weibo.cn": // weibo international
+			wid := p.Query().Get("weibo_id")
+			wid = regexp.MustCompile(`^\d+`).FindString(wid)
+			p.Path = path.Join("status", wid)
+			p.RawQuery = ""
+		default:
+			// weibo china
+		}
+		p.Host = "m.weibo.cn"
+
+		_, _ = fmt.Fprintln(os.Stdout, p.String())
 	}
 
 	return

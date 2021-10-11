@@ -28,76 +28,54 @@ type Picture struct {
 		URL  string `json:"url"`
 	} `json:"large"`
 }
-type RenderData struct {
+type Weibo struct {
 	Status Status `json:"status"`
 }
 
-func (r *RenderData) HTML() (s string) {
+func (wb *Weibo) From(jsons []byte) (err error) {
+	return json.Unmarshal(jsons, wb)
+}
+func (wb *Weibo) HTML() (content string) {
 	doc, _ := goquery.NewDocumentFromReader(strings.NewReader(`<!DOCTYPE html><html lang="zh-cn"></html>`))
 	head := doc.Find("head")
-	{
-		head.AppendHtml(`<meta charset="UTF-8">`)
-		head.AppendHtml(fmt.Sprintf(`<meta name="inostar:publish" content="%s">`, r.CreateTime().Format(time.RFC1123Z)))
-		head.AppendHtml(fmt.Sprintf(`<title>%s</title>`, html.EscapeString(r.Status.StatusTitle)))
-	}
+	head.AppendHtml(`<meta charset="UTF-8">`)
+	head.AppendHtml(fmt.Sprintf(`<meta name="inostar:publish" content="%s">`, wb.CreateTime().Format(time.RFC1123Z)))
+	head.AppendHtml(fmt.Sprintf(`<title>%s</title>`, html.EscapeString(wb.Status.StatusTitle)))
 
 	body := doc.Find("body")
-	{
-		body.AppendHtml(r.info())
-		body.AppendHtml(r.Status.Text)
-		body.AppendHtml("<br />")
-		body.Find("a").Each(func(i int, a *goquery.Selection) {
-			ref, _ := a.Attr("href")
-			if ref != "" {
-				a.SetAttr("href", r.patchRef(ref))
-			}
-		})
-		for _, p := range r.Status.Pics {
-			body.AppendHtml(fmt.Sprintf(`<a href="%s"><img src="%s" alt="%s"></a><br />`, p.Large.URL, p.Large.URL, p.Large.URL))
+	body.AppendHtml(wb.header())
+	body.AppendHtml(wb.Status.Text)
+	body.AppendHtml("<br />")
+	body.Find("a").Each(func(i int, a *goquery.Selection) {
+		ref, _ := a.Attr("href")
+		if ref != "" {
+			a.SetAttr("href", wb.patchRef(ref))
 		}
-		body.AppendHtml(r.foot())
+	})
+	for _, p := range wb.Status.Pics {
+		body.AppendHtml(fmt.Sprintf(`<a href="%s"><img src="%s" alt="%s"></a><br />`, p.Large.URL, p.Large.URL, p.Large.URL))
 	}
+	body.AppendHtml(wb.footer())
 
-	s, _ = doc.Html()
+	content, _ = doc.Html()
 
 	return
 }
-func (r *RenderData) CreateTime() time.Time {
-	t, err := time.Parse(time.RubyDate, r.Status.CreatedAt)
+func (wb *Weibo) CreateTime() time.Time {
+	t, err := time.Parse(time.RubyDate, wb.Status.CreatedAt)
 	if err != nil {
 		t = time.Now()
 	}
 	return t
 }
-func (r *RenderData) CreateTimeString() string {
-	return r.CreateTime().Format("2006-01-02 15:04:05")
+func (wb *Weibo) CreateTimeString() string {
+	return wb.CreateTime().Format("2006-01-02 15:04:05")
 }
-func (r *RenderData) Link() string {
-	return fmt.Sprintf("https://m.weibo.cn/status/%s", r.Status.Bid)
+func (wb *Weibo) Link() string {
+	return fmt.Sprintf("https://m.weibo.cn/status/%s", wb.Status.Bid)
 }
-func (r *RenderData) From(data []byte) (err error) {
-	return json.Unmarshal(data, r)
-}
-func (r *RenderData) patchRef(ref string) string {
-	h, err := url.Parse(r.Link())
-	if err != nil {
-		return ref
-	}
 
-	u, err := url.Parse(ref)
-	if err != nil {
-		return ref
-	}
-
-	if u.Scheme == "" {
-		u.Scheme = h.Scheme
-	}
-	if u.Host == "" {
-		u.Host = h.Host
-	}
-	return u.String()
-}
-func (r *RenderData) info() string {
+func (wb *Weibo) header() string {
 	const tpl = `
 <p>
     <a title="Published: {time}" href="{link}"
@@ -108,13 +86,13 @@ func (r *RenderData) info() string {
 </p>
 `
 	return strings.NewReplacer(
-		"{time}", r.CreateTimeString(),
-		"{link}", r.Link(),
-		"{source}", html.EscapeString(r.Status.User.ScreenName),
-		"{title}", html.EscapeString(r.Status.StatusTitle),
+		"{time}", wb.CreateTimeString(),
+		"{link}", wb.Link(),
+		"{source}", html.EscapeString(wb.Status.User.ScreenName),
+		"{title}", html.EscapeString(wb.Status.StatusTitle),
 	).Replace(tpl)
 }
-func (r *RenderData) foot() string {
+func (wb *Weibo) footer() string {
 	const tpl = `
 <br/><br/>
 <a style="display: inline-block; border-top: 1px solid #ccc; padding-top: 5px; color: #666; text-decoration: none;"
@@ -124,6 +102,23 @@ func (r *RenderData) foot() string {
 </p>`
 
 	return strings.NewReplacer(
-		"{link}", fmt.Sprintf("https://m.weibo.cn/status/%s", r.Status.Bid),
+		"{link}", fmt.Sprintf("https://m.weibo.cn/status/%s", wb.Status.Bid),
 	).Replace(tpl)
+}
+func (wb *Weibo) patchRef(ref string) string {
+	h, err := url.Parse(wb.Link())
+	if err != nil {
+		return ref
+	}
+	u, err := url.Parse(ref)
+	if err != nil {
+		return ref
+	}
+	if u.Scheme == "" {
+		u.Scheme = h.Scheme
+	}
+	if u.Host == "" {
+		u.Host = h.Host
+	}
+	return u.String()
 }
