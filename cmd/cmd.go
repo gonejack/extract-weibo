@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -73,7 +72,7 @@ func (c *ExtractWeibo) run() error {
 		output = strings.ReplaceAll(output, "/", ".")
 		output = strings.ReplaceAll(output, ":", ".")
 
-		err = ioutil.WriteFile(output, []byte(weibo.HTML()), 0666)
+		err = os.WriteFile(output, []byte(weibo.HTML()), 0666)
 		if err != nil {
 			return err
 		}
