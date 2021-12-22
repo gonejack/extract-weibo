@@ -7,8 +7,9 @@ import (
 )
 
 func main() {
-	err := new(cmd.ExtractWeibo).Run()
-	if err != nil {
-		log.Fatal(err)
+	var c cmd.ExtractWeibo
+
+	if e := c.Run(); e != nil {
+		log.Fatal(e)
 	}
 }

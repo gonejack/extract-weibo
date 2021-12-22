@@ -22,6 +22,7 @@ import (
 type options struct {
 	Convert bool `short:"c" help:"Convert weibo.com links to m.weibo.cn."`
 	Verbose bool `short:"v" help:"Verbose printing."`
+	About   bool `help:"About."`
 
 	Args []string `arg:"" optional:""`
 }
@@ -30,16 +31,20 @@ type ExtractWeibo struct {
 	options
 }
 
-func (c *ExtractWeibo) Run() error {
+func (c *ExtractWeibo) Run() (err error) {
 	kong.Parse(&c.options,
 		kong.Name("extract-weibo"),
 		kong.Description("Command line tool for extracting weibo content from m.weibo.cn html files"),
 		kong.UsageOnError(),
 	)
 
-	if c.Convert {
+	switch {
+	case c.About:
+		fmt.Println("Visit https://github.com/gonejack/extract-weibo")
+		return
+	case c.Convert:
 		return c.convertLink()
-	} else {
+	default:
 		if len(c.Args) == 0 {
 			c.Args, _ = filepath.Glob("*.html")
 		}
