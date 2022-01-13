@@ -1,4 +1,4 @@
-package cmd
+package extractweibo
 
 import (
 	"bufio"
@@ -9,53 +9,33 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/alecthomas/kong"
 
 	"github.com/gonejack/extract-weibo/model"
 )
 
-type options struct {
-	Convert bool `short:"c" help:"Convert weibo.com links to m.weibo.cn."`
-	Verbose bool `short:"v" help:"Verbose printing."`
-	About   bool `help:"About."`
-
-	Args []string `arg:"" optional:""`
+type Weibo struct {
+	Options
 }
 
-type ExtractWeibo struct {
-	options
-}
-
-func (c *ExtractWeibo) Run() (err error) {
-	kong.Parse(&c.options,
-		kong.Name("extract-weibo"),
-		kong.Description("Command line tool for extracting weibo content from m.weibo.cn html files"),
-		kong.UsageOnError(),
-	)
-
-	switch {
-	case c.About:
+func (c *Weibo) Run() (err error) {
+	if c.About {
 		fmt.Println("Visit https://github.com/gonejack/extract-weibo")
 		return
-	case c.Convert:
-		return c.convertLink()
-	default:
-		if len(c.Args) == 0 {
-			c.Args, _ = filepath.Glob("*.html")
-		}
-		if len(c.Args) == 0 {
-			return errors.New("no HTML files given")
-		}
-		return c.run()
 	}
+	if c.Convert {
+		return c.convertLink()
+	}
+	if len(c.HTML) == 0 {
+		return errors.New("no HTML files given")
+	}
+	return c.run()
 }
-func (c *ExtractWeibo) run() error {
-	for _, html := range c.Args {
+func (c *Weibo) run() error {
+	for _, html := range c.HTML {
 		if c.Verbose {
 			log.Printf("processing %s", html)
 		}
@@ -85,7 +65,7 @@ func (c *ExtractWeibo) run() error {
 
 	return nil
 }
-func (c *ExtractWeibo) parseHTML(html string) (json string, err error) {
+func (c *Weibo) parseHTML(html string) (json string, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("parse %s error: %w", html, err)
@@ -122,11 +102,11 @@ func (c *ExtractWeibo) parseHTML(html string) (json string, err error) {
 
 	return
 }
-func (c *ExtractWeibo) decodeWeibo(j string) (data *model.Weibo, err error) {
+func (c *Weibo) decodeWeibo(j string) (data *model.Weibo, err error) {
 	data = new(model.Weibo)
 	return data, data.From([]byte(j))
 }
-func (c *ExtractWeibo) operateDoc(doc *goquery.Document, data *model.Weibo) *goquery.Document {
+func (c *Weibo) operateDoc(doc *goquery.Document, data *model.Weibo) *goquery.Document {
 	doc.Find("div.wrap").Remove()
 	doc.Find("div.weibo-media-wraps").Parent().Remove()
 	for _, pic := range data.Status.Pics {
@@ -134,7 +114,7 @@ func (c *ExtractWeibo) operateDoc(doc *goquery.Document, data *model.Weibo) *goq
 	}
 	return doc
 }
-func (c *ExtractWeibo) convertLink() (err error) {
+func (c *Weibo) convertLink() (err error) {
 	var urls []string
 
 	// scan urls from stdin
@@ -146,7 +126,7 @@ func (c *ExtractWeibo) convertLink() (err error) {
 		}
 	}
 
-	urls = append(urls, c.Args...)
+	urls = append(urls, c.HTML...)
 
 	for _, u := range urls {
 		p, err := url.Parse(u)

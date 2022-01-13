@@ -2,14 +2,20 @@ package main
 
 import (
 	"log"
+	"os"
 
-	"github.com/gonejack/extract-weibo/cmd"
+	"github.com/gonejack/extract-weibo/extractweibo"
 )
 
+func init() {
+	log.SetOutput(os.Stdout)
+}
 func main() {
-	var c cmd.ExtractWeibo
-
-	if e := c.Run(); e != nil {
-		log.Fatal(e)
+	cmd := extractweibo.Weibo{
+		Options: extractweibo.MustParseOptions(),
+	}
+	err := cmd.Run()
+	if err != nil {
+		log.Fatal(err)
 	}
 }
