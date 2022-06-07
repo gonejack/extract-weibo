@@ -18,6 +18,7 @@ type Status struct {
 	User        User      `json:"user"`
 	Bid         string    `json:"bid"`
 	Pics        []Picture `json:"pics"`
+	PageInfo    PageInfo  `json:"page_info"`
 }
 type User struct {
 	ScreenName string `json:"screen_name"`
@@ -28,6 +29,20 @@ type Picture struct {
 		URL  string `json:"url"`
 	} `json:"large"`
 }
+type PageInfo struct {
+	Type      string `json:"type"`
+	MediaInfo struct {
+		StreamUrl   string `json:"stream_url"`
+		StreamUrlHd string `json:"stream_url_hd"`
+	} `json:"media_info"`
+	Urls struct {
+		Mp41080pMp4 string `json:"mp4_1080p_mp4"`
+		Mp4720pMp4  string `json:"mp4_720p_mp4"`
+		Mp4HdMp4    string `json:"mp4_hd_mp4"`
+		Mp4LdMp4    string `json:"mp4_ld_mp4"`
+	} `json:"urls"`
+}
+
 type Weibo struct {
 	Status Status `json:"status"`
 }
@@ -54,6 +69,24 @@ func (wb *Weibo) HTML() (content string) {
 	})
 	for _, p := range wb.Status.Pics {
 		body.AppendHtml(fmt.Sprintf(`<a href="%s"><img src="%s" alt="%s"></a><br />`, p.Large.URL, p.Large.URL, p.Large.URL))
+	}
+	switch wb.Status.PageInfo.Type {
+	case "video":
+		urls := []string{
+			wb.Status.PageInfo.Urls.Mp41080pMp4,
+			wb.Status.PageInfo.Urls.Mp4720pMp4,
+			wb.Status.PageInfo.Urls.Mp4HdMp4,
+			wb.Status.PageInfo.MediaInfo.StreamUrlHd,
+			wb.Status.PageInfo.MediaInfo.StreamUrl,
+			wb.Status.PageInfo.Urls.Mp4LdMp4,
+		}
+		for _, streamURL := range urls {
+			if streamURL != "" {
+				tpl := `<video autoplay controls width="100%%"><source src="%s" type="video/mp4"></video>`
+				body.AppendHtml(fmt.Sprintf(tpl, streamURL))
+				break
+			}
+		}
 	}
 	body.AppendHtml(wb.footer())
 
