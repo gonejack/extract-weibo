@@ -47,7 +47,6 @@ func (c *Weibo) run() error {
 		if err != nil {
 			return err
 		}
-
 		author := strings.TrimSpace(weibo.Status.User.ScreenName)
 		title := []rune(strings.TrimSpace(weibo.Status.StatusTitle))
 		if len(title) > 30 {
@@ -65,7 +64,7 @@ func (c *Weibo) run() error {
 
 	return nil
 }
-func (c *Weibo) parseHTML(html string) (json string, err error) {
+func (c *Weibo) parseHTML(html string) (json []byte, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("parse %s error: %w", html, err)
@@ -76,35 +75,23 @@ func (c *Weibo) parseHTML(html string) (json string, err error) {
 	if err != nil {
 		return
 	}
+	defer fd.Close()
 
 	doc, err := goquery.NewDocumentFromReader(fd)
 	if err != nil {
 		return
 	}
 
-	script := doc.Find("body").Find("script").First().Text()
+	var scripts []string
+	doc.Find("body>script").Each(func(i int, e *goquery.Selection) { scripts = append(scripts, e.Text()) })
+	script := strings.Join(scripts, "\n")
 	script = fmt.Sprintf("%s\n console.log(JSON.stringify($render_data))", script)
 
-	cmd := exec.Command("node", "-e", script)
-	out, err := cmd.StdoutPipe()
-	if err != nil {
-		return
-	}
-	err = cmd.Start()
-	if err != nil {
-		return
-	}
-	sc := bufio.NewScanner(out)
-	for sc.Scan() {
-		json = sc.Text()
-	}
-	err = cmd.Wait()
-
-	return
+	return exec.Command("node", "-e", script).Output()
 }
-func (c *Weibo) decodeWeibo(j string) (data *model.Weibo, err error) {
+func (c *Weibo) decodeWeibo(dat []byte) (data *model.Weibo, err error) {
 	data = new(model.Weibo)
-	return data, data.From([]byte(j))
+	return data, data.From(dat)
 }
 func (c *Weibo) operateDoc(doc *goquery.Document, data *model.Weibo) *goquery.Document {
 	doc.Find("div.wrap").Remove()
