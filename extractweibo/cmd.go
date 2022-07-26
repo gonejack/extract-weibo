@@ -82,9 +82,7 @@ func (c *Weibo) parseHTML(html string) (json []byte, err error) {
 		return
 	}
 
-	var scripts []string
-	doc.Find("body>script").Each(func(i int, e *goquery.Selection) { scripts = append(scripts, e.Text()) })
-	script := strings.Join(scripts, "\n")
+	script := doc.Find(`body>script:contains("$render_data")`).First().Text()
 	script = fmt.Sprintf("%s\n console.log(JSON.stringify($render_data))", script)
 
 	return exec.Command("node", "-e", script).Output()
@@ -112,7 +110,6 @@ func (c *Weibo) convertLink() (err error) {
 			urls = append(urls, scan.Text())
 		}
 	}
-
 	urls = append(urls, c.HTML...)
 
 	for _, u := range urls {
@@ -123,7 +120,6 @@ func (c *Weibo) convertLink() (err error) {
 		if !strings.Contains(p.Host, "weibo") {
 			continue
 		}
-
 		switch {
 		case p.Host == "share.api.weibo.cn": // weibo international
 			wid := p.Query().Get("weibo_id")
